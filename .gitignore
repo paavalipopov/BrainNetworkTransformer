@@ -6,3 +6,7 @@ wandb/*
 result/*
 outputs/*
 multirun/*
+
+*.python-version*
+
+source/dataset/data

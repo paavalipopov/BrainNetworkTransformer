@@ -10,15 +10,18 @@ def load_abide_data(cfg: DictConfig):
     final_timeseires = data["timeseires"]
     final_pearson = data["corr"]
     labels = data["label"]
-    site = data['site']
+    site = data["site"]
 
-    scaler = StandardScaler(mean=np.mean(
-        final_timeseires), std=np.std(final_timeseires))
+    scaler = StandardScaler(
+        mean=np.mean(final_timeseires), std=np.std(final_timeseires)
+    )
 
     final_timeseires = scaler.transform(final_timeseires)
 
-    final_timeseires, final_pearson, labels = [torch.from_numpy(
-        data).float() for data in (final_timeseires, final_pearson, labels)]
+    final_timeseires, final_pearson, labels = [
+        torch.from_numpy(data).float()
+        for data in (final_timeseires, final_pearson, labels)
+    ]
 
     with open_dict(cfg):
 

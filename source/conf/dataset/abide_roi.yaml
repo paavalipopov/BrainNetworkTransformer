@@ -1,4 +1,4 @@
-name: abide
+name: abide_roi
 batch_size: 16
 test_batch_size: 16
 val_batch_size: 16
