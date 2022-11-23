@@ -73,3 +73,8 @@ Please cite our paper if you find this code useful for your work:
   year={2022},
 }
 ```
+
+`
+conda activate bnt1
+python -m source --multirun datasz=100p model=bnt dataset=fbirn repeat_time=1 preprocess=mixup
+`
