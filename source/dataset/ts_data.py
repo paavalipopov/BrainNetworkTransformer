@@ -43,13 +43,13 @@ def load_ABIDE1(
     # 100 - components - data.shape[1]
     # 140 - time points - data.shape[2]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
-    # filter the data: leave only correct components
-    data = data[:, idx, :]
-    # print(data.shape)
-    # 53 - components - data.shape[1]
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
+    # # filter the data: leave only correct components
+    # data = data[:, idx, :]
+    # # print(data.shape)
+    # # 53 - components - data.shape[1]
 
     # get labels
     labels = pd.read_csv(labels_path, header=None)
@@ -85,16 +85,16 @@ def load_ABIDE1_869(
     # 100 - components - data.shape[1]
     # 295 - time points - data.shape[2]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
 
-    # filter the data: leave only correct components and the first 156 time points
-    # (not all subjects have all 160 time points)
-    data = data[:, idx, :]
-    # print(data.shape)
-    # 53 - components - data.shape[1]
-    # 156 - time points - data.shape[2]
+    # # filter the data: leave only correct components and the first 156 time points
+    # # (not all subjects have all 160 time points)
+    # data = data[:, idx, :]
+    # # print(data.shape)
+    # # 53 - components - data.shape[1]
+    # # 156 - time points - data.shape[2]
 
     # get labels
     labels = pd.read_csv(labels_path, header=None)
@@ -138,13 +138,13 @@ def load_COBRE(
     # 100 - components - data.shape[1]
     # 140 - time points - data.shape[2]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
-    # filter the data: leave only correct components
-    data = data[:, idx, :]
-    # print(data.shape)
-    # 53 - components - data.shape[1]
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
+    # # filter the data: leave only correct components
+    # data = data[:, idx, :]
+    # # print(data.shape)
+    # # 53 - components - data.shape[1]
 
     # get labels
     labels = pd.read_csv(labels_path, header=None)
@@ -188,11 +188,11 @@ def load_FBIRN(
     # 100 - components - data.shape[1]
     # 140 - time points - data.shape[2]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
-    # filter the data: leave only correct components
-    data = data[:, idx, :]
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
+    # # filter the data: leave only correct components
+    # data = data[:, idx, :]
     # print(data.shape)
     # 53 - components - data.shape[1]
 
@@ -237,16 +237,18 @@ def load_OASIS(
     # 100 - components - data.shape[1]
     # 160 - time points - data.shape[2]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
 
-    # filter the data: leave only correct components and the first 156 time points
-    # (not all subjects have all 160 time points)
-    data = data[:, idx, :156]
-    # print(data.shape)
-    # 53 - components - data.shape[1]
-    # 156 - time points - data.shape[2]
+    # # filter the data: leave only correct components and the first 156 time points
+    # # (not all subjects have all 160 time points)
+    # data = data[:, idx, :156]
+    # # print(data.shape)
+    # # 53 - components - data.shape[1]
+    # # 156 - time points - data.shape[2]
+
+    data = data[:, :, :156]
 
     # get labels
     labels = pd.read_csv(labels_path, header=None)
@@ -278,47 +280,6 @@ def load_OASIS(
     return data, labels
 
 
-def load_balanced_OASIS():
-    """
-    Return 320 balanced OASIS subjects (classes 0 and 1 only)
-
-    Output:
-    features, labels
-    """
-
-    features, labels = load_OASIS(only_first_sessions=True, only_two_classes=True)
-
-    # for 651 subjects with label 0
-    filter_array_0 = []
-    # for 172 subjects with label 1
-    filter_array_1 = []
-
-    for label in labels:
-        if label == 0:
-            filter_array_0.append(True)
-            filter_array_1.append(False)
-        else:
-            filter_array_0.append(False)
-            filter_array_1.append(True)
-
-    # copy subjects to separate arrays
-    features_0 = features[filter_array_0]
-    labels_0 = labels[filter_array_0]
-    features_1 = features[filter_array_1]
-    labels_1 = labels[filter_array_1]
-
-    # balance the arrays
-    features_0 = features_0[:160]
-    labels_0 = labels_0[:160]
-    features_1 = features_1[:160]
-    labels_1 = labels_1[:160]
-
-    features = np.concatenate((features_0, features_1), axis=0)
-    labels = np.concatenate((labels_0, labels_1), axis=0)
-
-    return features, labels
-
-
 def load_UKB(
     dataset_path: str = "/data/users2/ppopov1/UKB_data/UKB_sex_data.npz",
     indices_path: str = "/data/users2/ppopov1/UKB_data/correct_indices_GSP.csv",
@@ -343,10 +304,10 @@ def load_UKB(
         features = npzfile["features"]
         labels = npzfile["labels"]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
-    features = features[:, idx, :]
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
+    # features = features[:, idx, :]
 
     return features, labels
 
@@ -377,10 +338,10 @@ def load_BSNIP(
         features = npzfile["features"]
         labels = npzfile["labels"]
 
-    # get correct indices/components
-    indices = pd.read_csv(indices_path, header=None)
-    idx = indices[0].values - 1
-    features = features[:, idx, :]
+    # # get correct indices/components
+    # indices = pd.read_csv(indices_path, header=None)
+    # idx = indices[0].values - 1
+    # features = features[:, idx, :]
 
     if only_two_classes:
         # leave subjects of class 0 and 1 only

@@ -10,6 +10,7 @@ def continus_mixup_data(*xs, y=None, alpha=1.0, device='cuda'):
         lam = 1
     batch_size = y.size()[0]
     index = torch.randperm(batch_size).to(device)
+    # index = torch.randperm(batch_size)
     new_xs = [lam * x + (1 - lam) * x[index, :] for x in xs]
     y = lam * y + (1-lam) * y[index]
     return *new_xs, y
