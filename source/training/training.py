@@ -114,6 +114,8 @@ class Train:
             loss_meter.update_with_weight(loss.item(), label.shape[0])
             top1 = accuracy(output, label[:, 1])[0]
             acc_meter.update_with_weight(top1, label.shape[0])
+            # result += torch.nan_to_num(F.softmax(output, dim=1)[:, 1]).tolist()
+            # print(torch.isnan(output))
             result += F.softmax(output, dim=1)[:, 1].tolist()
             labels += label[:, 1].tolist()
 
