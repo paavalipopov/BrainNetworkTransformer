@@ -29,7 +29,12 @@ class Train:
         self.logger = logger
         self.model = model
         self.logger.info(f"#model params: {count_params(self.model)}")
-        self.train_dataloader, self.val_dataloader, self.test_dataloader = dataloaders
+        (
+            self.train_dataloader,
+            self.val_dataloader,
+            self.test_dataloader,
+            self.extra_dataloaders,
+        ) = dataloaders
         self.epochs = cfg.training.epochs
         self.total_steps = cfg.total_steps
         self.optimizers = optimizers
@@ -45,19 +50,23 @@ class Train:
             self.train_loss,
             self.val_loss,
             self.test_loss,
+            self.trash_loss,
             self.train_accuracy,
             self.val_accuracy,
             self.test_accuracy,
-        ) = [TotalMeter() for _ in range(6)]
+            self.trash_accuracy,
+        ) = [TotalMeter() for _ in range(8)]
 
     def reset_meters(self):
         for meter in [
             self.train_accuracy,
             self.val_accuracy,
             self.test_accuracy,
+            self.trash_accuracy,
             self.train_loss,
             self.val_loss,
             self.test_loss,
+            self.trash_loss,
         ]:
             meter.reset()
 
@@ -181,6 +190,15 @@ class Train:
                 self.test_dataloader, self.test_loss, self.test_accuracy
             )
 
+            extra_results = {}
+
+            for extra_ds in self.extra_dataloaders:
+                extra_results[extra_ds] = self.test_per_epoch(
+                    self.extra_dataloaders[extra_ds],
+                    self.trash_loss,
+                    self.trash_accuracy,
+                )
+
             self.logger.info(
                 " | ".join(
                     [
@@ -189,6 +207,7 @@ class Train:
                         f"Train Accuracy:{self.train_accuracy.avg: .3f}%",
                         f"Test Loss:{self.test_loss.avg: .3f}",
                         f"Test Accuracy:{self.test_accuracy.avg: .3f}%",
+                        f"Train Loss:{self.val_loss.avg: .3f}",
                         f"Val AUC:{val_result[0]:.4f}",
                         f"Test AUC:{test_result[0]:.4f}",
                         f"Test Sen:{test_result[-1]:.4f}",
@@ -197,21 +216,24 @@ class Train:
                 )
             )
 
-            wandb.log(
-                {
-                    "Train Loss": self.train_loss.avg,
-                    "Train Accuracy": self.train_accuracy.avg,
-                    "Test Loss": self.test_loss.avg,
-                    "Test Accuracy": self.test_accuracy.avg,
-                    "Val AUC": val_result[0],
-                    "Test AUC": test_result[0],
-                    "Test Sensitivity": test_result[-1],
-                    "Test Specificity": test_result[-2],
-                    "micro F1": test_result[-4],
-                    "micro recall": test_result[-5],
-                    "micro precision": test_result[-6],
-                }
-            )
+            wandb_log = {
+                "Train Loss": self.train_loss.avg,
+                "Train Accuracy": self.train_accuracy.avg,
+                "Test Loss": self.test_loss.avg,
+                "Test Accuracy": self.test_accuracy.avg,
+                "valid_loss": self.val_loss.avg,
+                "valid_score": val_result[0],
+                "test_score": test_result[0],
+                "Test Sensitivity": test_result[-1],
+                "Test Specificity": test_result[-2],
+                "micro F1": test_result[-4],
+                "micro recall": test_result[-5],
+                "micro precision": test_result[-6],
+            }
+            for ds in extra_results:
+                wandb_log[f"{ds}_test_score"] = extra_results[ds][0]
+
+            wandb.log(wandb_log)
 
             training_process.append(
                 {

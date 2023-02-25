@@ -1,12 +1,14 @@
+import torch
+import torch.utils.data as utils
+from torch.utils.data import TensorDataset
+import torch.nn.functional as F
+
 from omegaconf import DictConfig, open_dict
 from .abcd import load_abcd_data
 from .abide import load_abide_data
 from .dataloader import init_my_dataloader
 from typing import List
 
-import torch.utils as utils
-import torch.nn.functional as F
-import torch
 
 from .ts_data import load_dataset
 from .preprocess import StandardScaler
@@ -30,11 +32,10 @@ from scipy import stats
 #     return dataloaders
 
 
-def my_dataset_factory(
-    cfg: DictConfig, k: int, trial: int
-) -> List[utils.data.DataLoader]:
+def my_dataset_factory(cfg: DictConfig, k: int, trial: int) -> List[utils.DataLoader]:
     choices = [
         "oasis",
+        "adni",
         "abide",
         "fbirn",
         "cobre",
@@ -56,9 +57,53 @@ def my_dataset_factory(
     # [n_features; n_channels; time_len]
     final_timeseires, labels = load_dataset(cfg.dataset.name)
 
+    tcs = []
+    tc = final_timeseires.shape[2]
+    if cfg.model.name == "FBNETGEN":
+        tc = tc - tc % cfg.model.window_size
+    tcs.append(tc)
+
+    if cfg.dataset.name == "fbirn":
+        extra_ds = ["bsnip", "cobre"]
+    elif cfg.dataset.name == "bsnip":
+        extra_ds = ["fbirn", "cobre"]
+    elif cfg.dataset.name == "cobre":
+        extra_ds = ["fbirn", "bsnip"]
+    elif cfg.dataset.name == "oasis":
+        extra_ds = ["adni"]
+    elif cfg.dataset.name == "adni":
+        extra_ds = ["oasis"]
+    else:
+        extra_ds = []
+
+    fbnet = False
+    if cfg.model.name == "FBNETGEN":
+        fbnet = True
+        for ds in extra_ds:
+            local_timeseires, _ = load_dataset(ds)
+            tc = (
+                local_timeseires.shape[2]
+                - local_timeseires.shape[2] % cfg.model.window_size
+            )
+            tcs.append(local_timeseires.shape[2])
+
+    # find minimal time-course
+    min_tc = np.min(tcs)
+
+    if fbnet:
+        final_timeseires = final_timeseires[:, :, :min_tc]
+
     for t in range(final_timeseires.shape[0]):
         for r in range(final_timeseires.shape[1]):
             final_timeseires[t, r, :] = stats.zscore(final_timeseires[t, r, :])
+
+    good_indices = []
+    for i, ts in enumerate(final_timeseires):
+        if np.sum(np.isnan(ts)) == 0:
+            good_indices += [i]
+
+    final_timeseires = final_timeseires[good_indices]
+    labels = labels[good_indices]
 
     final_pearson = np.zeros(
         (
@@ -69,11 +114,6 @@ def my_dataset_factory(
     )
     for i in range(final_timeseires.shape[0]):
         final_pearson[i, :, :] = np.corrcoef(final_timeseires[i, :, :])
-
-    # final_timeseires, final_pearson, labels = [
-    #     torch.from_numpy(data).float()
-    #     for data in (final_timeseires, final_pearson, labels)
-    # ]
 
     print("Data shape: ")
     print("TSeries: ", final_timeseires.shape)
@@ -89,5 +129,50 @@ def my_dataset_factory(
     dataloaders = init_my_dataloader(
         cfg, k, trial, final_timeseires, final_pearson, labels
     )
+
+    extra_dataloaders = {}
+    for ds in extra_ds:
+        final_timeseires, labels = load_dataset(ds)
+        final_timeseires[final_timeseires != final_timeseires] = 0
+        if fbnet:
+            final_timeseires = final_timeseires[:, :, :min_tc]
+
+        for t in range(final_timeseires.shape[0]):
+            for r in range(final_timeseires.shape[1]):
+                final_timeseires[t, r, :] = stats.zscore(final_timeseires[t, r, :])
+        good_indices = []
+        for i, ts in enumerate(final_timeseires):
+            if np.sum(np.isnan(ts)) == 0:
+                good_indices += [i]
+
+        final_timeseires = final_timeseires[good_indices]
+        labels = labels[good_indices]
+
+        final_pearson = np.zeros(
+            (
+                final_timeseires.shape[0],
+                final_timeseires.shape[1],
+                final_timeseires.shape[1],
+            )
+        )
+        for i in range(final_timeseires.shape[0]):
+            final_pearson[i, :, :] = np.corrcoef(final_timeseires[i, :, :])
+
+        labels = torch.from_numpy(labels)
+        labels = F.one_hot(labels.to(torch.int64))
+        test_ds = TensorDataset(
+            torch.tensor(final_timeseires, dtype=torch.float32),
+            torch.tensor(final_pearson, dtype=torch.float32),
+            labels,
+        )
+
+        extra_dataloaders[ds] = utils.DataLoader(
+            test_ds,
+            batch_size=cfg.dataset.batch_size,
+            shuffle=True,
+            drop_last=False,
+        )
+
+    dataloaders.append(extra_dataloaders)
 
     return dataloaders
